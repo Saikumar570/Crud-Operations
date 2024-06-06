@@ -1,88 +1,79 @@
 package controllers
 
 import (
-	"api/initializers"
 	"api/models"
+	"api/repositories"
 
 	"github.com/gin-gonic/gin"
 )
 
+var postRepository *repositories.Repository
+
+func PostRepository(repo *repositories.Repository) {
+	postRepository = repo
+}
+
 func Create(c *gin.Context) {
-	//get data i.e. to see
-	var body struct {
-		Name       string
-		Employeeid int
-		Email      string
+	var post models.Post
+	if err := c.Bind(&post); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body"})
+		return
 	}
+	if err := postRepository.Create(&post); err != nil {
+		c.JSON(400, gin.H{"error": "Failed to create post"})
+		return
+	}
+	c.JSON(200, gin.H{"post": post})
+}
 
-	c.Bind(&body)
+func ReadAll(c *gin.Context) {
+	var posts []models.Post
+	if err := postRepository.FindAll(&posts); err != nil {
+		c.JSON(500, gin.H{"error": "Failed to retrieve posts"})
+		return
+	}
+	c.JSON(200, gin.H{"posts": posts})
+}
 
-	// create post variable to store
-	post := models.Post{Name: body.Name, Employeeid: body.Employeeid, Email: body.Email}
-	result := initializers.DB.Create(&post)
-
-	if result.Error != nil {
-		c.Status(400)
+func ReadOne(c *gin.Context) {
+	id := c.Param("id")
+	var post models.Post
+	if err := postRepository.FindByID(id, &post); err != nil {
+		c.JSON(404, gin.H{"error": "Post not found"})
 		return
 	}
 
-	c.JSON(200, gin.H{
-		"post": post,
-	})
-}
-
-func READALL(c *gin.Context) {
-	//get the all posts
-	var posts []models.Post
-	initializers.DB.Find(&posts)
-	c.JSON(200, gin.H{
-		"posts": posts,
-	})
-}
-
-func READONE(c *gin.Context) {
-	// get id off url
-	id := c.Param("id")
-	//get the post of particular id
-	var post models.Post
-	initializers.DB.First(&post, id)
-	c.JSON(200, gin.H{
-		"post": post,
-	})
+	c.JSON(200, gin.H{"post": post})
 }
 
 func Update(c *gin.Context) {
-	//get id
 	id := c.Param("id")
-	//get data
-	var body struct {
-		Name       string
-		Employeeid int
-		Email      string
-	}
-	c.Bind(&body)
-	// find it
 	var post models.Post
-	initializers.DB.First(&post, id)
+	if err := postRepository.FindByID(id, &post); err != nil {
+		c.JSON(404, gin.H{"error": "Post not found"})
+		return
+	}
 
-	//update it
-	initializers.DB.Model(&post).Updates(models.Post{
-		Name:       body.Name,
-		Employeeid: body.Employeeid,
-		Email:      body.Email,
-	})
+	if err := c.Bind(&post); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body"})
+		return
+	}
 
-	//respond with it
-	c.JSON(200, gin.H{
-		"post": post,
-	})
+	if err := postRepository.Update(&post); err != nil {
+		c.JSON(400, gin.H{"error": "Failed to update post"})
+		return
+	}
+
+	c.JSON(200, gin.H{"post": post})
 }
 
 func Deletes(c *gin.Context) {
-	//get id
 	id := c.Param("id")
-	//delete posts
-	initializers.DB.Delete(&models.Post{}, id)
-	//respond
+
+	if err := postRepository.Delete(id); err != nil {
+		c.JSON(400, gin.H{"error": "Failed to delete post"})
+		return
+	}
+
 	c.Status(200)
 }
