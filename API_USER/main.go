@@ -9,25 +9,30 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func init() {
-	initializers.LoadEnvVariables()
-	initializers.ConnectToDB()
-}
-
 func main() {
 	err := initializers.ConnectToDB()
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	postRepository := repositories.FunctionOfRepository(initializers.DB)
-	controllers.PostRepository(postRepository)
+	repo := repositories.NewRepository(initializers.DB)
+	postController := controllers.NewPostController(repo.Post)
+	commentController := controllers.NewCommentController(repo.Comment)
 	r := gin.Default()
 
-	r.POST("/posts", controllers.Create)
-	r.GET("/posts", controllers.ReadAll)
-	r.GET("/posts/:id", controllers.ReadOne)
-	r.PUT("/posts/:id", controllers.Update)
-	r.DELETE("/posts/:id", controllers.Deletes)
+	r.POST("/posts", postController.Create)
+	r.GET("/posts", postController.ReadAll)
+	r.GET("/posts/:post_id", postController.ReadOne)
+	r.PUT("/posts/:post_id", postController.Update)
+	r.DELETE("/posts/:post_id", postController.Delete)
+
+	postGroup := r.Group("/posts/:post_id")
+	{
+		postGroup.POST("/comments", commentController.Create)
+		postGroup.GET("/comments", commentController.ReadAllByPostID)
+	}
+	r.GET("/comments/:comment_id", commentController.ReadOne)
+	r.PUT("/comments/:comment_id", commentController.Update)
+	r.DELETE("/comments/:comment_id", commentController.Delete)
 
 	r.Run(":3000")
 }
